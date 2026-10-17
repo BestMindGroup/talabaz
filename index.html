@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<title>رصدگر طلای ۱۸ عیار</title>
+<link rel="manifest" href='data:application/json,{"name":"رصدگر طلا ۱۸","short_name":"طلا ۱۸","start_url":".","display":"standalone","background_color":"#1a1a2e","theme_color":"#f0a5...'>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif}
+body{background:#1a1a2e;color:#eee;min-height:100vh;padding-bottom:40px}
+header{background:linear-gradient(135deg,#16213e,#0f3460);padding:16px;text-align:center;position:sticky;top:0;z-index:10}
+header h1{color:#f0a500;font-size:1.3em}
+header .status{font-size:.75em;color:#aaa;margin-top:4px}
+.container{padding:14px;max-width:600px;margin:auto}
+.card{background:#16213e;border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{color:#f0a500;font-size:1em;margin-bottom:10px;border-right:3px solid #f0a500;padding-right:8px}
+.price-big{font-size:2.1em;font-weight:800;color:#fff;text-align:center;direction:ltr}
+.price-big span{font-size:.4em;color:#888}
+.change{text-align:center;font-size:.9em;margin-top:4px}
+.up{color:#2ecc71}.down{color:#e74c3c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.level{background:#0f3460;border-radius:10px;padding:10px;text-align:center}
+.level .lbl{font-size:.7em;color:#aaa}
+.level .val{font-size:1.05em;font-weight:700;color:#f0a500;direction:ltr}
+.buy .val{color:#2ecc71}.sell .val{color:#e74c3c}.sl .val{color:#e67e22}
+input{width:100%;padding:10px;border-radius:8px;border:1px solid #2a3a5c;background:#0d1b3e;color:#fff;font-size:1em;margin-bottom:8px}
+button{width:100%;padding:12px;border:none;border-radius:8px;background:#f0a500;color:#1a1a2e;font-weight:700;font-size:1em;cursor:pointer;margin-top:4px}
+button.sec{background:#0f3460;color:#f0a500;border:1px solid #f0a500}
+.hint{font-size:.72em;color:#8899aa;line-height:1.8;margin-top:8px}
+#chartWrap{height:220px;position:relative}
+.alerts li{background:#0f3460;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:.85em;list-style:none;display:flex;justify-content:space-between}
+.del{color:#e74c3c;cursor:pointer;font-weight:700}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#f0a500;color:#1a1a2e;padding:12px 20px;border-radius:10px;font-weight:700;display:none;z-index:99;max-width:90%;te[...]
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{padding:8px;font-size:.78em;margin:0}
+.tabs button.on{background:#fff}
+h3{color:#f0a500;font-size:.9em;margin:8px 0 4px}
+table{width:100%;font-size:.8em;border-collapse:collapse}
+td,th{padding:5px;border-bottom:1px solid #2a3a5c;text-align:center}
+.fc{background:#0f3460;border-radius:10px;padding:10px;margin-bottom:8px}
+.fc .d{font-size:.8em;color:#f0a500;font-weight:700}
+.fc .row{display:flex;justify-content:space-between;font-size:.82em;margin-top:4px;flex-wrap:wrap}
+.hi{color:#e74c3c}.lo{color:#2ecc71}.md{color:#f0a500}
+.tag{display:inline-block;font-size:.65em;padding:2px 8px;border-radius:6px;background:#f0a500;color:#1a1a2e;margin-right:4px}
+.trend{font-size:.85em;text-align:center;padding:6px;border-radius:8px;margin-top:6px;background:#0f3460}
+#dayRange{font-size:.8em;text-align:center;color:#8899aa;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+<h1>📊 رصدگر طلای ۱۸ عیار</h1>
+<div class="status" id="status">در حال دریافت داده…</div>
+</header>
+<div class="container">
+
+<div class="card">
+<div class="price-big" id="price">— <span>تومان / گرم</span></div>
+<div class="change" id="chg">—</div>
+<div id="dayRange">—</div>
+<div style="display:flex;gap:8px;margin-top:10px">
+<input type="number" id="manual" placeholder="ورود دستی قیمت (تومان یا ریال)" style="flex:1">
+<button style="width:auto;padding:10px 16px;margin:0" onclick="setManual()">ثبت</button>
+</div>
+<button class="sec" onclick="refresh(true)">🔄 به‌روزرسانی قیمت</button>
+<div class="hint">منبع: tgju.org — اپ واحد ریال/تومان را خودکار تصحیح می‌کند؛ اگر عدد را ریال هم وارد کنید تبدیل می‌شود.[...]
+</div>
+
+<div class="tabs">
+<button class="on" onclick="showTab(0,this)">📈 تحلیل</button>
+<button onclick="showTab(1,this)">🔮 پیش‌بینی ۴۸ ساعت</button>
+<button onclick="showTab(2,this)">🔔 هشدارها</button>
+<button onclick="showTab(3,this)">⚙️ تنظیمات</button>
+</div>
+
+<div id="tab0">
+<div class="card">
+<h2>سطوح نوسان‌گیری (فقط طلای ۱۸ عیار)</h2>
+<div class="grid">
+<div class="level buy"><div class="lbl">🟢 نقطه خرید</div><div class="val" id="buy">—</div></div>
+<div class="level sell"><div class="lbl">🔴 نقطه فروش</div><div class="val" id="sell">—</div></div>
+<div class="level sl"><div class="lbl">🟠 حد ضرر</div><div class="val" id="sl">—</div></div>
+<div class="level"><div class="lbl">📍 قیمت فعلی</div><div class="val" id="cur">—</div></div>
+</div>
+<h3>خرید پله‌ای</h3>
+<table id="stairs"></table>
+<div class="hint">سطوح روی میانگین خرید/فروش لحظه‌ای محاسبه می‌شود — همان قیمتی که واقعاً معامله می‌کنید.</div>
+</div>
+<div class="card">
+<h2>نمودار قیمت (تاریخچه ثبت‌شده)</h2>
+<div id="chartWrap"><canvas id="chart"></canvas></div>
+</div>
+</div>
+
+<div id="tab1" style="display:none">
+<div class="card">
+<h2>🔮 پیش‌بینی قیمت تا دو روز بعد</h2>
+<div id="trendBox"></div>
+<div id="fcBox"></div>
+<h3>🎯 پیشنهاد عملیاتی نوسان‌گیری</h3>
+<div id="fcAdvice" class="hint"></div>
+<div class="hint">روش: رگرسیون روند + میانگین متحرک + نوسان‌پذیری واقعی. ⚠️ برآورد آماری است، نه تضمین.</div>
+</div>
+</div>
+
+<div id="tab2" style="display:none">
+<div class="card">
+<h2>هشدار لحظه‌ای خرید/فروش</h2>
+<button onclick="enableNotif()">🔔 فعال‌سازی اعلان روی نوار ابزار گوشی</button>
+<div style="margin-top:10px">
+<label style="font-size:.85em">هشدار خرید زیر قیمت:</label>
+<input type="number" id="aBuy" placeholder="مثلاً 25900000">
+<label style="font-size:.85em">هشدار فروش بالای قیمت:</label>
+<input type="number" id="aSell" placeholder="مثلاً 26650000">
+<button onclick="addAlerts()">➕ ثبت هشدارها (اپ + ارسال به سرور تلگرام)</button>
+</div>
+<ul id="alertsList" style="margin-top:8px"></ul>
+<div class="hint">با تنظیم سرور (تب تنظیمات)، هشدار به‌صورت پیام تلگرام می‌رسد — حتی با گوشی خاموش.</div>
+</div>
+</div>
+
+<div id="tab3" style="display:none">
+<div class="card">
+<h2>اتصال به سرور هشدار ۲۴/۷</h2>
+<label>آدرس سرور:</label>
+<input type="url" id="srvUrl" placeholder="http://192.168.1.5:8000">
+<button onclick="testSrv()">🔌 تست اتصال به سرور</button>
+</div>
+<div class="card">
+<h2>پارامترهای استراتژی (٪)</h2>
+<label>فاصله خرید:</label><input type="number" id="pBuy" value="1" step="0.1">
+<label>فاصله فروش:</label><input type="number" id="pSell" value="1" step="0.1">
+<label>حد ضرر:</label><input type="number" id="pSL" value="1.8" step="0.1">
+<label>فاصله پله‌ها:</label><input type="number" id="pStep" value="0.5" step="0.1">
+<label>فاصله به‌روزرسانی (ثانیه):</label><input type="number" id="pInt" value="30" min="10">
+<button onclick="saveCfg()">💾 ذخیره تنظیمات</button>
+</div>
+<div class="card">
+<h2>داده و پشتیبان‌گیری</h2>
+<button class="sec" onclick="exportData()">📤 خروجی تاریخچه (JSON)</button>
+<button class="sec" onclick="clearData()">🗑️ پاک کردن تاریخچه</button>
+<div class="hint">⚠️ بعد از این به‌روزرسانی، تاریخچه قبلی (اگر قیمت‌های اشتباه ۱۰ برابری ثبت شده) را با «پاک کردن �[...]
+</div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+if('serviceWorker' in navigator){try{
+const sw=`self.addEventListener('push',e=>{let d={title:'⚠️ هشدار طلا ۱۸',body:''};try{d=e.data.json()}catch(x){try{d.body=e.data.text()}catch(y){}
+ e.waitUntil(self.registration.showNotification(d.title,{body:d.body,vibrate:[300,100,300],requireInteraction:true}))});
+self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.matchAll({type:'window'}).then(cs=>cs.length?cs[0].focus():clients.openWindow('.'))});`;
+navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'text/javascript'}))).catch(()=>{});
+}catch(e){}
+}
+
+let price=0,hist=JSON.parse(localStorage.getItem('g18_hist')||'[]');
+let alerts=JSON.parse(localStorage.getItem('g18_alerts')||'[]');
+let cfg=JSON.parse(localStorage.getItem('g18_cfg')||'{}');
+let srv=localStorage.getItem('g18_srv')||'';
+cfg={b:cfg.b||1,s:cfg.s||1,sl:cfg.sl||1.8,st:cfg.st||0.5,int:cfg.int||30};
+let chart=null,timer=null;
+
+function fmt(n){return n?Math.round(n).toLocaleString('en-US'):'—'}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',4000)}
+function faDate(dt){return dt.toLocaleDateString('fa-IR',{weekday:'long',day:'numeric',month:'long'})}
+
+/* ---- نرمال‌ساز واحد: ریال → تومان + اعتبارسنجی بازه گرم ۱۸ ---- */
+function toToman(v){
+  let n=+String(v).replace(/,/g,'');
+  if(!n||isNaN(n)||n<=0)return 0;
+  let conv=false;
+  while(n>100000000){n/=10;conv=true} // APIهای tgju ریال می‌دهند
+  if(n<1000000||n>100000000)return 0; // خارج از بازه منطقی گرم ۱۸ → رد
+  window._lastConv=conv;
+  return Math.round(n);
+}
+
+/* ---- منبع اصلی: tgju لحظه‌ای ---- */
+async function refresh(manual){
+ document.getElementById('status').textContent='در حال دریافت داده…';
+ let sell=0,buy=0,hi=0,lo=0,src='';
+ // منبع ۱: فید ajax لحظه‌ای tgju (اعداد ریال → نرمال‌سازی)
+ try{
+  const r=await fetch('https://call1.tgju.org/ajax.json',{cache:'no-store'});
+  const j=await r.json();
+  const cur=j.current||{};
+  const g=cur['tgju_gold_irg18']||cur['geram18']||cur['gold_irg18'];
+  const gb=cur['tgju_gold_irg18_buy'];
+  if(g&&g.p){
+    sell=toToman(g.p);hi=toToman(g.h);lo=toToman(g.l);
+    buy=gb&&gb.p?toToman(gb.p):sell;
+    src='tgju لحظه‌ای ⚡ '+(g.t||'');
+  }
+ }catch(e){}
+ // منبع ۲: پشتیبان — جدول روزانه tgju (ستون [3]=آخرین قیمت، ریال → نرمال‌سازی)
+ if(!sell){try{
+  const r=await fetch('https://api.tgju.org/v1/market/indicator/summary-table-data/geram18',{cache:'no-store'});
+  const j=await r.json();
+  if(j&&j.data&&j.data[0]){
+    const row=j.data[0];
+    sell=toToman(row[3])||toToman(row[0]);
+    buy=sell;src='tgju (پشتیبان روزانه)';
+  }
+ }catch(e){}}
+ if(sell){
+  const mid=Math.round((sell+buy)/2);
+  document.getElementById('dayRange').textContent='🔴 فروش: '+fmt(sell)+' | 🟢 خرید: '+fmt(buy)+(hi&&lo?' | سقف روز: '+fmt(hi)+' | کف روز: '+fmt(lo):'');
+  setPrice(mid,src+(window._lastConv?' (تصحیح ریال→تومان)':''));
+ }else if(manual)document.getElementById('status').textContent='⚠️ منابع در دسترس نیست — قیمت را دستی وارد کنید';
+}
+function setPrice(p,src){
+ price=p;
+ document.getElementById('price').innerHTML=fmt(p)+' <span>تومان / گرم</span>';
+ document.getElementById('status').textContent=src;
+ document.getElementById('cur').textContent=fmt(p);
+ let prev=hist.length?hist[hist.length-1].p:p;
+ let ch=prev?((p-prev)/prev*100).toFixed(2):0;
+ const c=document.getElementById('chg');
+ c.textContent=(ch>0?'▲ +':'▼ ')+ch+' ٪ نسبت به آخرین ثبت';
+ c.className='change '+(ch>0?'up':ch<0?'down':'');
+ const lastT=hist.length?hist[hist.length-1].t:0;
+ if(Date.now()-lastT>60000){hist.push({p,t:Date.now()});if(hist.length>1000)hist.shift();localStorage.setItem('g18_hist',JSON.stringify(hist))}
+ compute();draw();forecast();checkAlerts();
+}
+function setManual(){
+ let v=+document.getElementById('manual').value;
+ v=toToman(v);
+ if(v)setPrice(v,'ورود دستی ✅ '+new Date().toLocaleTimeString('fa-IR'));
+ else toast('قیمت معتبر وارد کنید (بین ۱ تا ۱۰۰ میلیون تومان)');
+}
+
+function compute(){
+ if(!price)return;
+ document.getElementById('buy').textContent=fmt(price*(1-cfg.b/100));
+ document.getElementById('sell').textContent=fmt(price*(1+cfg.s/100));
+ document.getElementById('sl').textContent=fmt(price*(1-cfg.sl/100));
+ let rows='<tr><th>پله</th><th>قیمت خرید</th><th>سهم</th></tr>';
+ for(let i=1;i<=3;i++)rows+='<tr><td>'+i+'</td><td style="direction:ltr;color:#2ecc71">'+fmt(price*(1-(cfg.b/100)-(i-1)*cfg.st/100))+'</td><td>۳۳٪</td></tr>';
+ document.getElementById('stairs').innerHTML=rows;
+}
+
+function forecast(){
+ const box=document.getElementById('fcBox'),tb=document.getElementById('trendBox'),ad=document.getElementById('fcAdvice');
+ if(!price){box.innerHTML='<div class="hint">اول قیمت را ثبت کنید</div>';return}
+ let rets=[];
+ for(let i=1;i<hist.length;i++){if(hist[i].p>0&&hist[i-1].p>0)rets.push(hist[i].p/hist[i-1].p-1)}
+ let drift=0,sd=0.002;
+ if(rets.length>=3){
+  const mu=rets.reduce((a,b)=>a+b,0)/rets.length;
+  sd=Math.sqrt(rets.reduce((a,b)=>a+(b-mu)**2,0)/Math.max(1,rets.length-1));
+  const n=Math.min(rets.length,30),ys=rets.slice(-n);
+  const mx=(n-1)/2,my=ys.reduce((a,b)=>a+b,0)/n;
+  let numr=0,den=0;for(let i=0;i<n;i++){numr+=(i-mx)*(ys[i]-my);den+=(i-mx)**2}
+  drift=den?numr/den:0;
+ }
+ let ma=price;
+ if(hist.length>=5){const k=Math.min(5,hist.length);ma=hist.slice(-k).reduce((a,h)=>a+h.p,0)/k}
+ const trendAdj=(price-ma)/price*0.5;
+ const baseDrift=Math.max(-0.02,Math.min(0.02,drift*6+trendAdj));
+ const dayVol=Math.max(0.003,Math.min(0.05,sd*Math.sqrt(24)));
+ const days=[{lab:'امروز',h:0},{lab:'فردا',h:1},{lab:'پس‌فردا',h:2}];
+ let html='',lowAll=Infinity,highAll=0;
+ days.forEach(d=>{
+  const m=price*Math.pow(1+baseDrift,d.h+1);
+  const hi=m*(1+dayVol*Math.sqrt(d.h+1)),lo=m*(1-dayVol*Math.sqrt(d.h+1));
+  lowAll=Math.min(lowAll,lo);highAll=Math.max(highAll,hi);
+  html+='<div class="fc"><div class="d">'+d.lab+' — '+faDate(new Date(Date.now()+d.h*86400000))+'</div>'+
+  '<div class="row"><span class="hi">🔴 سقف: '+fmt(hi)+'</span><span class="md">⚖️ پایه: '+fmt(m)+'</span><span class="lo">🟢 کف: '+fmt(lo)+'</span></div></div>';
+ });
+ box.innerHTML=html;
+ const tr=(baseDrift>0.002?'📈 روند صعودی ملایم':baseDrift<-0.002?'📉 روند نزولی ملایم':'➖ روند خنثی/رنج')+' | نوسان روزانه: '+(dayVol*100)[...]
+ tb.innerHTML='<div class="trend">'+tr+'</div>';
+ const buyZ=price*(1-cfg.b/100),sellZ=price*(1+cfg.s/100);
+ ad.innerHTML='• ناحیه خرید دو روز آینده: <b style="direction:ltr;color:#2ecc71">'+fmt(Math.max(lowAll,price*(1-cfg.b/100-0.005)))+'</b> تا <b style="direction:ltr;color:#2[...]
+ '• ناحیه فروش دو روز آینده: <b style="direction:ltr;color:#e74c3c">'+fmt(sellZ)+'</b> تا <b style="direction:ltr;color:#e74c3c">'+fmt(highAll)+'</b><br>'+
+ '• نوسان '+(dayVol*100).toFixed(1)+'٪: '+(dayVol>0.015?'بازار داغ — حجم را کم نگه دارید.':'بازار آرام — سود هدف کوچک‌تر.');
+}
+
+function enableNotif(){
+ if(!('Notification'in window))return toast('مرورگر شما اعلان پشتیبانی نمی‌کند');
+ Notification.requestPermission().then(p=>toast(p==='granted'?'✅ اعلان فعال شد':'از تنظیمات گوشی اجازه دهید'));
+}
+function addAlerts(){
+ const b=toToman(document.getElementById('aBuy').value),s=toToman(document.getElementById('aSell').value);
+ if(b)alerts.push({dir:'buy',p:b,t:Date.now()});
+ if(s)alerts.push({dir:'sell',p:s,t:Date.now()});
+ localStorage.setItem('g18_alerts',JSON.stringify(alerts));drawAlerts();syncSrv();toast('هشدار ثبت شد ✅');
+}
+function drawAlerts(){
+ document.getElementById('alertsList').innerHTML=alerts.map((a,i)=>
+ '<li><span>'+(a.dir==='buy'?'🟢 خرید زیر':'🔴 فروش بالای')+' <b style="direction:ltr">'+fmt(a.p)+'</b>'+(a.fired?' <span class="tag">اعلام شد</span>':'')+'</span><span[...]
+}
+function delA(i){alerts.splice(i,1);localStorage.setItem('g18_alerts',JSON.stringify(alerts));drawAlerts();syncSrv()}
+function checkAlerts(){
+ alerts.forEach(a=>{
+ if(!a.fired&&price){
+ if(a.dir==='buy'&&price<=a.p)fire(a,'🟢 سیگنال خرید! طلا ۱۸ به '+fmt(price)+' رسید (زیر '+fmt(a.p)+')');
+ if(a.dir==='sell'&&price>=a.p)fire(a,'🔴 سیگنال فروش! طلا ۱۸ به '+fmt(price)+' رسید (بالای '+fmt(a.p)+')');
+ }});
+}
+function fire(a,msg){
+ a.fired=true;localStorage.setItem('g18_alerts',JSON.stringify(alerts));drawAlerts();
+ toast(msg);
+ if(navigator.serviceWorker.ready)navigator.serviceWorker.ready.then(r=>r.showNotification('⚠️ هشدار طلا ۱۸',{body:msg,vibrate:[300,100,300],requireInteraction:true})).catch(()=>{if...
+ if(navigator.vibrate)navigator.vibrate([300,100,300]);
+ try{const x=new(window.AudioContext||window.webkitAudioContext)();const o=x.createOscillator();const g=x.createGain();o.connect(g);g.connect(x.destination);o.frequency.value=880;g.gain.value=.3;[...]
+ }
+}
+setInterval(()=>{if(document.hidden&&price)checkAlerts()},30000);
+
+function syncSrv(){
+ if(!srv)return;
+ fetch(srv+'/set_alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alerts:alerts.filter(a=>!a.fired)})}).catch(()=>{});
+}
+async function testSrv(){
+ srv=document.getElementById('srvUrl').value.replace(/\/$/,'');
+ try{await fetch(srv+'/ping');toast('✅ سرور متصل شد — هشدارها به تلگرام می‌رسند');
+ localStorage.setItem('g18_srv',srv);syncSrv();
+ }catch(e){toast('❌ اتصال به سرور برقرار نشد — server.py اجرا شده است؟')}
+}
+
+function draw(){
+ const ctx=document.getElementById('chart').getContext('2d');
+ const data=hist.slice(-100);
+ if(chart)chart.destroy();
+ chart=new Chart(ctx,{type:'line',data:{labels:data.map(h=>new Date(h.t).toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'})),datasets:[{data:data.map(h=>h.p),borderColor:'#f0a500',back[...]
+ options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#667',font:{size:9}}},y:{ticks:{color:'#667'}}}}});
+}
+function saveCfg(){
+ cfg={b:+document.getElementById('pBuy').value,s:+document.getElementById('pSell').value,sl:+document.getElementById('pSL').value,st:+document.getElementById('pStep').value,int:Math.max(10,+docum[...]
+ localStorage.setItem('g18_cfg',JSON.stringify(cfg));startTimer();compute();forecast();toast('ذخیره شد ✅');
+}
+function exportData(){const b=new Blob([JSON.stringify(hist)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='gold18-history.json';a.click[...]
+function clearData(){hist=[];localStorage.setItem('g18_hist','[]');draw();forecast();toast('پاک شد')}
+function showTab(i,btn){
+ document.querySelectorAll('#tab0,#tab1,#tab2,#tab3').forEach((t,j)=>t.style.display=j===i?'block':'none');
+ document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+}
+function startTimer(){clearInterval(timer);timer=setInterval(()=>refresh(false),cfg.int*1000)}
+
+document.getElementById('pBuy').value=cfg.b;document.getElementById('pSell').value=cfg.s;
+document.getElementById('pSL').value=cfg.sl;document.getElementById('pStep').value=cfg.st;document.getElementById('pInt').value=cfg.int;
+document.getElementById('srvUrl').value=srv;
+drawAlerts();draw();compute();forecast();
+refresh();startTimer();
+</script>
+</body>
+</html>
